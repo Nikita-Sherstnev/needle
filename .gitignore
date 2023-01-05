@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.vscode
+venv
+.pytest_cache/
+*.so
+build/
+data/*
+*.ipynb

@@ -1,0 +1,7 @@
+pytest
+torch
+numpy
+pybind11
+numdifftools
+requests
+git+https://github.com/dlsyscourse/mugrade@main#egg=mugrade
