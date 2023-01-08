@@ -115,3 +115,7 @@ def reduce_max(a, out, reduce_size):
 
 def reduce_sum(a, out, reduce_size):
     out.array[:] = a.array[:].reshape(-1, reduce_size).sum(axis=1)
+
+
+def clip(a, out, min, max):
+    out.array[:] = np.clip(a.array, min, max)

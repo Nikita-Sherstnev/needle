@@ -156,6 +156,18 @@ class SoftmaxLoss(Module):
         ### END YOUR SOLUTION
 
 
+class BinaryCrossEntropy(Module):
+    def forward(self, p, t):
+        if len(p.shape) != len(t.shape):
+            t = t.reshape(*p.shape)
+
+        p = ops.clip(p, 1e-9, 0.999)
+
+        tlog_p = t * ops.log(p) + (1 - t) * ops.log(1 - p)
+        y = -1 * ops.summation(tlog_p) / t.shape[0]
+        return y
+
+
 class BatchNorm1d(Module):
     def __init__(self, dim, eps=1e-5, momentum=0.1, device=None, dtype="float32"):
         super().__init__()
@@ -258,7 +270,7 @@ class Conv(Module):
     No grouped convolution or dilation
     Only supports square kernels
     """
-    def __init__(self, i, o, k, stride=1, bias=True, device=None, dtype="float32"):
+    def __init__(self, i, o, k, stride=1, bias=True, padding=None, device=None, dtype="float32"):
         super().__init__()
         if isinstance(k, tuple):
             k = k[0]
@@ -268,6 +280,7 @@ class Conv(Module):
         self.out_channels = o
         self.kernel_size = k
         self.stride = stride
+        self.padding = padding
 
         ### BEGIN YOUR SOLUTION
         weight_init = init.kaiming_uniform(i* k**2, o* k**2, shape=(k, k, i, o),
@@ -286,7 +299,12 @@ class Conv(Module):
         ### BEGIN YOUR SOLUTION
         xt = x.transpose(axes=(1,2)).transpose(axes=(2,3))
 
-        out = ops.conv(xt, self.weight, padding=self.kernel_size//2, stride=self.stride)
+        if self.padding is None:
+            padding = self.kernel_size//2
+        else:
+            padding = self.padding
+
+        out = ops.conv(xt, self.weight, padding=padding, stride=self.stride)
         out = out.transpose(axes=(2,3)).transpose(axes=(1,2))
 
         if self.bias is not None:
@@ -295,6 +313,55 @@ class Conv(Module):
 
         return out
         ### END YOUR SOLUTION
+
+
+class Deconv(Module):
+    """
+    Multi-channel 2D convolutional layer
+    IMPORTANT: Accepts inputs in NCHW format, outputs also in NCHW format
+    Only supports padding=same
+    No grouped convolution or dilation
+    Only supports square kernels
+    """
+    def __init__(self, i, o, k, stride=1, bias=True, padding=None, device=None, dtype="float32"):
+        super().__init__()
+        if isinstance(k, tuple):
+            k = k[0]
+        if isinstance(stride, tuple):
+            stride = stride[0]
+        self.in_channels = i
+        self.out_channels = o
+        self.kernel_size = k
+        self.stride = stride
+        self.padding = padding
+
+        weight_init = init.kaiming_uniform(i* k**2, o* k**2, shape=(k, k, i, o),
+            dtype=dtype, device=device, requires_grad=True)
+        self.weight = Parameter(weight_init)
+
+        if bias:
+            x = 1.0 / ((i* k**2) ** 0.5)
+            self.bias = Parameter(init.rand(o, low=-x, high=x,
+                dtype=dtype, device=device, requires_grad=True))
+        else:
+            self.bias = None
+
+    def forward(self, x: Tensor) -> Tensor:
+        xt = x.transpose(axes=(1,2)).transpose(axes=(2,3))
+
+        if self.padding is None:
+            padding = self.kernel_size//2
+        else:
+            padding = self.padding
+
+        out = ops.deconv(xt, self.weight, padding=padding, stride=self.stride)
+        out = out.transpose(axes=(2,3)).transpose(axes=(1,2))
+
+        if self.bias is not None:
+            bias = self.bias.reshape((1, self.out_channels, 1, 1))
+            out += bias.broadcast_to(out.shape)
+
+        return out
 
 
 class RNNCell(Module):

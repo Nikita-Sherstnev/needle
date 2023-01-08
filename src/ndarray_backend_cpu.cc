@@ -465,6 +465,19 @@ void ReduceSum(const AlignedArray& a, AlignedArray* out, size_t reduce_size) {
   /// END YOUR SOLUTION
 }
 
+void Clip(const AlignedArray& a, AlignedArray* out, scalar_t min, scalar_t max) {
+  for (size_t i = 0; i < a.size; i++) {
+    out->ptr[i] = a.ptr[i];
+
+    if (a.ptr[i] < min) {
+      out->ptr[i] = min;
+    };
+    if (a.ptr[i] > max) {
+      out->ptr[i] = max;
+    };
+  }
+}
+
 }  // namespace cpu
 }  // namespace needle
 
@@ -525,4 +538,6 @@ PYBIND11_MODULE(ndarray_backend_cpu, m) {
 
   m.def("reduce_max", ReduceMax);
   m.def("reduce_sum", ReduceSum);
+
+  m.def("clip", Clip);
 }

@@ -378,6 +378,16 @@ void EwiseMaximum(const CudaArray& a, const CudaArray& b, CudaArray* out) {
   EwiseMaximumKernel<<<dim.grid, dim.block>>>(a.ptr, b.ptr, out->ptr, out->size);
 }
 
+__global__ void ClipKernel(const scalar_t* a, scalar_t* out, scalar_t min, scalar_t max, size_t size) {
+  size_t gid = blockIdx.x * blockDim.x + threadIdx.x;
+  if (gid < size) { out[gid] = fminf(max, fmaxf(a[gid], min)); }
+}
+
+void Clip(const CudaArray& a, CudaArray* out, scalar_t min, scalar_t max) {
+  CudaDims dim = CudaOneDim(out->size);
+  ClipKernel<<<dim.grid, dim.block>>>(a.ptr, out->ptr, min, max, out->size);
+}
+
 __global__ void ScalarMaximumKernel(const scalar_t* a, scalar_t val, scalar_t* out, size_t size) {
   size_t gid = blockIdx.x * blockDim.x + threadIdx.x;
   if (gid < size) { out[gid] = fmaxf(a[gid], val); }
@@ -721,4 +731,6 @@ PYBIND11_MODULE(ndarray_backend_cuda, m) {
 
   m.def("reduce_max", ReduceMax);
   m.def("reduce_sum", ReduceSum);
+
+  m.def("clip", Clip);
 }

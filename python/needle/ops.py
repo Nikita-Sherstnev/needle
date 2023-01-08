@@ -406,12 +406,34 @@ class Log(TensorOp):
 
     def gradient(self, out_grad, node):
         ### BEGIN YOUR SOLUTION
-        return Tensor([1.0]) / node.inputs[0] * out_grad
+        t = init.ones(*node.inputs[0].shape, device=node.inputs[0].device)
+        return t / node.inputs[0] * out_grad
         ### END YOUR SOLUTION
 
 
 def log(a):
     return Log()(a)
+
+
+class Clip(TensorOp):
+    def __init__(self, x_min, x_max):
+        self.x_min = x_min
+        self.x_max = x_max
+
+    def compute(self, x):
+        y = array_api.clip(x, self.x_min, self.x_max)
+        return y
+
+    def gradient(self, out_grad, node):
+        x, = node.inputs
+        mask = Tensor((x.data.numpy() >= self.x_min) * (x.data.numpy() <= self.x_max),
+                        dtype=out_grad.dtype, device=out_grad.device)
+        gx = out_grad * mask
+        return gx
+
+
+def clip(x, x_min, x_max):
+    return Clip(x_min, x_max)(x)
 
 
 class Exp(TensorOp):
@@ -689,8 +711,9 @@ class Conv(TensorOp):
         inner_dim = K * K * C_in
         A_2 = A.as_strided((N, H-K+1, W-K+1, K, K, C_in), (Ns, Hs, Ws, Hs, Ws, Cs))
         A_2 = A_2.compact().reshape((-1, inner_dim))
+        B_2 = B.compact().reshape((-1, C_out))
 
-        out = A_2 @ B.compact().reshape((-1, C_out))
+        out = A_2 @ B_2
         out = out.reshape((N,H-K+1,W-K+1,C_out))
 
         if self.stride > 1:
@@ -724,4 +747,56 @@ def conv(a, b, stride=1, padding=1):
     return Conv(stride, padding)(a, b)
 
 
+class Deconv(TensorOp):
+    def __init__(self, stride: Optional[int] = 1, padding: Optional[int] = 0):
+        self.stride = stride
+        self.padding = padding
 
+    def compute(self, A, B):
+        if self.stride > 1:
+            A = A.dilate((1,2), self.stride - 1)
+
+        self.stride = 1
+        self.padding = B.shape[0] - self.padding - 1
+
+        if self.padding > 0:
+            axes = []
+            for i in range(len(A.shape)):
+                if i in [1, 2]: # H, W
+                    axes.append((self.padding, self.padding))
+                else:
+                    axes.append((0, 0))
+            A = A.pad(axes)
+
+        N,H,W,C_in = A.shape
+        K,_,_,C_out = B.shape
+        Ns, Hs, Ws, Cs = A.strides
+
+        inner_dim = K * K * C_in
+        A_2 = A.as_strided((N, H-K+1, W-K+1, K, K, C_in), (Ns, Hs, Ws, Hs, Ws, Cs))
+        A_2 = A_2.compact().reshape((-1, inner_dim))
+
+        out = A_2 @ B.compact().reshape((-1, C_out)).flip(axes=(0,1))
+        out = out.reshape((N, H-K+1, W-K+1, C_out))
+
+        return out
+
+    def gradient(self, out_grad, node):
+        X, W = node.inputs
+
+        if self.stride > 1:
+            out_grad = undilate(out_grad, (1,2), self.stride - 1) # NWHC
+
+        print(W.shape)
+        print(out_grad.shape)
+        X_grad = conv(out_grad, W)
+
+        out_grad = out_grad.transpose(axes=(0,2)).transpose(axes=(0,1))
+
+        W_grad = conv(out_grad, X.transpose(axes=(0,3)), padding=self.padding)
+        W_grad = W_grad.transpose(axes=(0,2)).transpose(axes=(0,1))
+
+        return X_grad, W_grad
+
+def deconv(a, b, stride=1, padding=1):
+    return Deconv(stride, padding)(a, b)

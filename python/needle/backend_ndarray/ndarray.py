@@ -478,6 +478,11 @@ class NDArray:
             other, self.device.ewise_maximum, self.device.scalar_maximum
         )
 
+    def clip(self, min, max):
+        out = NDArray.make(self.shape, device=self.device)
+        self.device.clip(self.compact()._handle, out._handle, min, max)
+        return out
+
     ### Binary operators all return (0.0, 1.0) floating point values, could of course be optimized
     def __eq__(self, other):
         return self.ewise_or_scalar(other, self.device.ewise_eq, self.device.scalar_eq)
@@ -657,6 +662,17 @@ class NDArray:
         return out
         ### END YOUR SOLUTION
 
+    def dilate(self, axes, dilation):
+        new_shape = list(self.shape)
+        idxs = [slice(0, self.shape[i], 1) for i in range(len(self.shape))]
+        for i in range(len(self.shape)):
+            if i in axes:
+                new_shape[i] = new_shape[i] * (dilation + 1)
+                idxs[i] = slice(0, new_shape[i], (dilation + 1))
+        out = self.device.full(new_shape, 0.)
+        out[tuple(idxs)] = self
+        return out
+
 
 
 def array(a, dtype="float32", device=None):
@@ -687,6 +703,8 @@ def reshape(array, new_shape):
 def maximum(a, b):
     return a.maximum(b)
 
+def clip(a, min, max):
+    return a.clip(min, max)
 
 def log(a):
     return a.log()
