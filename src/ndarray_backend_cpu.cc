@@ -174,15 +174,6 @@ void ScalarSetitem(const size_t size, scalar_t val, AlignedArray* out, std::vect
   /// END YOUR SOLUTION
 }
 
-void EwiseAdd(const AlignedArray& a, const AlignedArray& b, AlignedArray* out) {
-  /**
-   * Set entries in out to be the sum of correspondings entires in a and b.
-   */
-  for (size_t i = 0; i < a.size; i++) {
-    out->ptr[i] = a.ptr[i] + b.ptr[i];
-  }
-}
-
 void ScalarAdd(const AlignedArray& a, scalar_t val, AlignedArray* out) {
   /**
    * Set entries in out to be the sum of correspondings entry in a plus the scalar val.
@@ -214,11 +205,6 @@ void ScalarAdd(const AlignedArray& a, scalar_t val, AlignedArray* out) {
  */
 
 /// BEGIN YOUR SOLUTION
-void EwiseMul(const AlignedArray& a, const AlignedArray& b, AlignedArray* out) {
-  for (size_t i = 0; i < a.size; i++) {
-    out->ptr[i] = a.ptr[i] * b.ptr[i];
-  }
-}
 
 void ScalarMul(const AlignedArray& a, scalar_t val, AlignedArray* out) {
   for (size_t i = 0; i < a.size; i++) {
@@ -226,9 +212,10 @@ void ScalarMul(const AlignedArray& a, scalar_t val, AlignedArray* out) {
   }
 }
 
-void EwiseDiv(const AlignedArray& a, const AlignedArray& b, AlignedArray* out) {
+template <typename T>
+void EwiseBinaryOperation(const AlignedArray& a, const AlignedArray& b, AlignedArray* out, T operation) {
   for (size_t i = 0; i < a.size; i++) {
-    out->ptr[i] = a.ptr[i] / b.ptr[i];
+    out->ptr[i] = operation(a.ptr[i], b.ptr[i]);
   }
 }
 
@@ -513,12 +500,22 @@ PYBIND11_MODULE(ndarray_backend_cpu, m) {
   m.def("compact", Compact);
   m.def("ewise_setitem", EwiseSetitem);
   m.def("scalar_setitem", ScalarSetitem);
-  m.def("ewise_add", EwiseAdd);
-  m.def("scalar_add", ScalarAdd);
 
-  m.def("ewise_mul", EwiseMul);
+  m.def("ewise_add", [](const AlignedArray& a, const AlignedArray& b, AlignedArray* out)
+                      {
+                        EwiseBinaryOperation(a, b, out, [](auto const& a, auto const& b){return a+b;});
+                      });
+  m.def("ewise_mul", [](const AlignedArray& a, const AlignedArray& b, AlignedArray* out)
+                      {
+                        EwiseBinaryOperation(a, b, out, [](auto const& a, auto const& b){return a*b;});
+                      });
+  m.def("ewise_div", [](const AlignedArray& a, const AlignedArray& b, AlignedArray* out)
+                      {
+                        EwiseBinaryOperation(a, b, out, [](auto const& a, auto const& b){return a/b;});
+                      });
+
+  m.def("scalar_add", ScalarAdd);
   m.def("scalar_mul", ScalarMul);
-  m.def("ewise_div", EwiseDiv);
   m.def("scalar_div", ScalarDiv);
   m.def("scalar_power", ScalarPower);
 
