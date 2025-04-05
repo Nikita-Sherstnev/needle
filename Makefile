@@ -8,6 +8,11 @@ lib:
 	@cd build; cmake ..
 	@cd build; $(MAKE)
 
+debug:
+	@mkdir -p build
+	@cd build; cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo ..
+	@cd build; $(MAKE)
+
 format:
 	python3 -m black .
 	clang-format -i src/*.cc src/*.cu
