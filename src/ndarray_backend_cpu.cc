@@ -390,20 +390,15 @@ void MatmulTiled(const AlignedArray& a, const AlignedArray& b, AlignedArray* out
    *
    */
   /// BEGIN YOUR SOLUTION
-  for (size_t i = 0; i < m/TILE; i++) {
-    for (size_t j = 0; j < p/TILE; j++) {
-      float temp_tile[TILE * TILE] = { 0.f };
-      for (size_t k = 0; k < n/TILE; k++) {
-        int a_offset = i * n * TILE + k * TILE * TILE;
-        int b_offset = k * p * TILE + j * TILE * TILE;
-
-        AlignedDot(a.ptr + a_offset, b.ptr + b_offset, temp_tile);
-      }
-
-      int out_offset = i * p * TILE + j * TILE * TILE;
-
-      for (size_t t = 0; t < TILE * TILE; t++) {
-        out->ptr[out_offset + t] = temp_tile[t];
+  Fill(out, 0);
+  size_t MTILE = m / TILE, NTILE = n / TILE, PTILE = p / TILE;
+  for (size_t i = 0; i < MTILE; i++) {
+    for (size_t k = 0; k < NTILE; k++) {
+      for (size_t j = 0; j < PTILE; j++) {
+        scalar_t *a_tile = a.ptr + (i * NTILE + k) * TILE * TILE;
+        scalar_t *b_tile = b.ptr + (k * PTILE + j) * TILE * TILE;
+        scalar_t *out_tile = out->ptr + (i * PTILE + j) * TILE * TILE;
+        AlignedDot(a_tile, b_tile, out_tile);
       }
     }
   }
